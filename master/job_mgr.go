@@ -52,7 +52,7 @@ func (jobMgr *JobMgr) SaveJob(job *common.Job) (oldJob *common.Job, err error) {
 		jobValue []byte
 		putRes   *clientv3.PutResponse
 	)
-	jobKey = "/cron/jobs/" + job.Name
+	jobKey = common.JOB_STORE_PREFIX + job.Name
 	if jobValue, err = json.Marshal(job); err != nil {
 		return
 	}
@@ -65,6 +65,47 @@ func (jobMgr *JobMgr) SaveJob(job *common.Job) (oldJob *common.Job, err error) {
 		// 忽略旧值获取错误
 		if e := json.Unmarshal(putRes.PrevKv.Value, &oldJob); e != nil {
 			fmt.Println(e)
+		}
+	}
+	return
+}
+
+// 删除任务
+func (jobMgr *JobMgr) DeleteJob(name string) (delJob *common.Job, err error) {
+
+	var (
+		jobKey string
+		delRes *clientv3.DeleteResponse
+	)
+	jobKey = common.JOB_STORE_PREFIX + name
+
+	if delRes, err = jobMgr.client.Delete(context.TODO(), jobKey, clientv3.WithPrevKV()); err != nil {
+		return
+	}
+
+	if delRes.Deleted > 0 {
+		if e := json.Unmarshal(delRes.PrevKvs[0].Value, &delJob); e != nil {
+			fmt.Println(e)
+		}
+	}
+	return
+}
+
+func (jobMgr *JobMgr) ListJobs() (jobList []*common.Job) {
+	var (
+		getRes *clientv3.GetResponse
+		err    error
+		job    *common.Job
+	)
+
+	if getRes, err = jobMgr.client.Get(context.TODO(), common.JOB_STORE_PREFIX, clientv3.WithPrefix()); err != nil {
+		return
+	}
+
+	for _, kv := range getRes.Kvs {
+		job = new(common.Job)
+		if err = json.Unmarshal(kv.Value, job); err == nil {
+			jobList = append(jobList, job)
 		}
 	}
 	return

@@ -28,6 +28,8 @@ func InitApiServer() (err error) {
 	)
 	mux = http.NewServeMux()
 	mux.HandleFunc("/job/save", handleJobSave)
+	mux.HandleFunc("/job/delete", handleJobDelete)
+	mux.HandleFunc("/job/list", handleJobList)
 
 	if listener, err = net.Listen("tcp", ":"+strconv.Itoa(GetConfig().ApiPort)); err != nil {
 		return
@@ -62,7 +64,6 @@ func handleJobSave(w http.ResponseWriter, r *http.Request) {
 		job        common.Job
 		inputBytes []byte
 		oldJob     *common.Job
-		bytes      []byte
 	)
 	// 解析表单
 	//if err = r.ParseForm(); err != nil {
@@ -70,6 +71,7 @@ func handleJobSave(w http.ResponseWriter, r *http.Request) {
 	//}
 
 	inputBytes, err = ioutil.ReadAll(r.Body)
+
 	defer r.Body.Close()
 
 	if err = json.Unmarshal(inputBytes, &job); err != nil {
@@ -81,13 +83,44 @@ func handleJobSave(w http.ResponseWriter, r *http.Request) {
 	}
 	// 返回正常应答
 
-	if bytes, err = common.BuildResponse(1, "success", oldJob); err == nil {
-		w.Write(bytes)
-	}
+	common.WriteResponse(w, 1, "success", oldJob)
+	//httputil.WriteJSONResponse(w, 1, oldJob)
 	return
 ERR:
 	// 返回异常应答
-	if bytes, err = common.BuildResponse(0, err.Error(), nil); err == nil {
-		w.Write(bytes)
+	common.WriteResponse(w, 0, err.Error(), nil)
+}
+
+// 删除任务接口
+// GET /job/delete name=jobName
+func handleJobDelete(w http.ResponseWriter, r *http.Request) {
+	var (
+		err     error
+		jobName string
+		delJob  *common.Job
+	)
+
+	if err = r.ParseForm(); err != nil {
+		goto ERR
 	}
+
+	jobName = r.FormValue("name")
+
+	if delJob, err = GetJobMgr().DeleteJob(jobName); err != nil {
+		goto ERR
+	}
+
+	common.WriteResponse(w, 1, "success", delJob)
+
+	return
+ERR:
+	common.WriteResponse(w, 0, err.Error(), nil)
+}
+
+func handleJobList(w http.ResponseWriter, r *http.Request) {
+	var (
+		jobList []*common.Job
+	)
+	jobList = GetJobMgr().ListJobs()
+	common.WriteResponse(w, 1, "success", jobList)
 }

@@ -1,6 +1,10 @@
 package common
 
-import "encoding/json"
+import (
+	"encoding/json"
+	"fmt"
+	"net/http"
+)
 
 type Job struct {
 	Name     string `json:"name"`
@@ -14,7 +18,7 @@ type Response struct {
 	Data interface{} `json:"data"`
 }
 
-func BuildResponse(code int, msg string, data interface{}) (res []byte, err error) {
+func buildResponse(code int, msg string, data interface{}) (res []byte, err error) {
 	var (
 		response Response
 	)
@@ -24,4 +28,17 @@ func BuildResponse(code int, msg string, data interface{}) (res []byte, err erro
 
 	res, err = json.Marshal(response)
 	return
+}
+
+func WriteResponse(w http.ResponseWriter, code int, msg string, data interface{}) {
+	res, err := buildResponse(code, msg, data)
+	if err != nil {
+		fmt.Println("对象转化成json失败：", err)
+		return
+	}
+	w.Header().Add("Content-Type", "application/json;charset=utf-8")
+	_, err = w.Write(res)
+	if err != nil {
+		fmt.Println("输出结果失败：", err)
+	}
 }
