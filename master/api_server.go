@@ -3,6 +3,7 @@ package master
 import (
 	"encoding/json"
 	"github.com/jazzmr/dcrontab/common"
+	"io/ioutil"
 	"net"
 	"net/http"
 	"strconv"
@@ -57,20 +58,36 @@ func GetApiServer() *apiServer {
 // POST job={"name"}
 func handleJobSave(w http.ResponseWriter, r *http.Request) {
 	var (
-		err       error
-		job       common.Job
-		formValue string
+		err        error
+		job        common.Job
+		inputBytes []byte
+		oldJob     *common.Job
+		bytes      []byte
 	)
 	// 解析表单
-	if err = r.ParseForm(); err != nil {
+	//if err = r.ParseForm(); err != nil {
+	//	goto ERR
+	//}
+
+	inputBytes, err = ioutil.ReadAll(r.Body)
+	defer r.Body.Close()
+
+	if err = json.Unmarshal(inputBytes, &job); err != nil {
 		goto ERR
 	}
 
-	formValue = r.PostFormValue("job")
-	if err = json.Unmarshal([]byte(formValue), &job); err != nil {
+	if oldJob, err = GetJobMgr().SaveJob(&job); err != nil {
 		goto ERR
 	}
+	// 返回正常应答
 
+	if bytes, err = common.BuildResponse(1, "success", oldJob); err == nil {
+		w.Write(bytes)
+	}
 	return
 ERR:
+	// 返回异常应答
+	if bytes, err = common.BuildResponse(0, err.Error(), nil); err == nil {
+		w.Write(bytes)
+	}
 }

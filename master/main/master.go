@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"github.com/jazzmr/dcrontab/master"
 	"runtime"
+	"time"
 )
 
 var (
@@ -43,7 +44,10 @@ func main() {
 		goto ERR
 	}
 	fmt.Print(banner)
-	return
+
+	for {
+		time.Sleep(1 * time.Second)
+	}
 ERR:
 	fmt.Println(err)
 }

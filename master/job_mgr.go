@@ -1,7 +1,11 @@
 package master
 
 import (
+	"context"
+	"encoding/json"
+	"fmt"
 	"github.com/coreos/etcd/clientv3"
+	"github.com/jazzmr/dcrontab/common"
 	"time"
 )
 
@@ -40,6 +44,28 @@ func GetJobMgr() *JobMgr {
 	return jobMgr
 }
 
-func (jobMgr *JobMgr) aa() {
+// 保存任务
+func (jobMgr *JobMgr) SaveJob(job *common.Job) (oldJob *common.Job, err error) {
+	// /cron/jobs/jobName -> json
+	var (
+		jobKey   string
+		jobValue []byte
+		putRes   *clientv3.PutResponse
+	)
+	jobKey = "/cron/jobs/" + job.Name
+	if jobValue, err = json.Marshal(job); err != nil {
+		return
+	}
 
+	// 保存到etcd
+	if putRes, err = jobMgr.client.Put(context.TODO(), jobKey, string(jobValue), clientv3.WithPrevKV()); err != nil {
+		return
+	}
+	if putRes.PrevKv != nil {
+		// 忽略旧值获取错误
+		if e := json.Unmarshal(putRes.PrevKv.Value, &oldJob); e != nil {
+			fmt.Println(e)
+		}
+	}
+	return
 }
